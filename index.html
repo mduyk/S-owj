@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DELTA RSL - CHI NHÁNH 1</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { --bg: #0d0d16; --card: #161625; --cyan: #00f2ff; --gold: #ffcc00; --red: #ff4444; --green: #00ff88; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; padding: 15px; margin: 0; }
+        .box { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; box-sizing: border-box; outline: none; }
+        input:focus { border-color: var(--cyan); }
+        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; text-transform: uppercase; }
+        button:active { transform: scale(0.98); }
+        .btn-main { background: var(--cyan); color: #000; }
+        .btn-sub { background: #444; color: #fff; margin-top: 10px; }
+        .balance { color: var(--gold); font-size: 24px; font-weight: bold; }
+        .qr-section { background: rgba(0, 242, 255, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(0, 242, 255, 0.2); margin-top: 15px; text-align: center; }
+        .key-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #222; }
+    </style>
+</head>
+<body>
+<div style="max-width: 450px; margin: auto;">
+    <h2 style="text-align:center; color: var(--cyan); letter-spacing: 2px;">DELTA RSL - SHOP 1</h2>
+    
+    <div id="auth-area" class="box">
+        <h3 id="auth-title" style="margin-top:0">ĐĂNG NHẬP</h3>
+        <input type="text" id="auth-user" placeholder="Tên tài khoản...">
+        <input type="password" id="auth-pass" placeholder="Mật khẩu...">
+        <div id="login-mode">
+            <button class="btn-main" onclick="handleAuth('login')">Đăng Nhập</button>
+            <button class="btn-sub" onclick="toggleAuth(false)">Chưa có tài khoản? Đăng ký</button>
+        </div>
+        <div id="register-mode" style="display:none">
+            <button class="btn-main" style="background:#2ecc71" onclick="handleAuth('register')">Tạo Tài Khoản Mới</button>
+            <button class="btn-sub" onclick="toggleAuth(true)">Đã có tài khoản? Đăng nhập</button>
+        </div>
+    </div>
+
+    <div id="user-area" class="box" style="display:none;">
+        <div style="display:flex; justify-content:space-between">
+            <span>Chào, <b id="display-name" style="color:var(--cyan)"></b></span>
+            <span onclick="location.reload()" style="font-size:12px; color:#888; cursor:pointer">[Đăng xuất]</span>
+        </div>
+        <div style="margin: 15px 0;">Ví tiền: <span class="balance" id="user-balance">0</span> VNĐ</div>
+        
+        <hr style="border:0.5px solid #333; margin:20px 0;">
+
+        <div class="qr-section">
+            <h4 style="margin:0 0 10px 0; color:var(--cyan);">NẠP TIỀN TỰ ĐỘNG</h4>
+            <div style="font-size: 13px; text-align: left; margin-bottom: 10px;">
+                <p style="margin:4px 0;">🏦 Ngân hàng: <b>MB BANK</b></p>
+                <p style="margin:4px 0;">💳 STK: <b style="color:var(--cyan);">0588807300000</b></p>
+                <p style="margin:4px 0;">👤 Chủ tài khoản: <b>CAO MINH DUY</b></p>
+            </div>
+            
+            <div style="background: #000; padding: 10px; border-radius: 8px; border: 1px solid #333; margin-bottom: 10px;">
+                <div style="font-size: 10px; color: #888;">NỘI DUNG CHUYỂN KHOẢN (BẮT BUỘC)</div>
+                <div id="memo-display" style="font-weight: bold; color: var(--gold); font-size: 18px; letter-spacing: 1px;">NAP ...</div>
+            </div>
+
+            <img id="qr-auto" src="" style="width: 100%; max-width: 200px; background: #fff; padding: 10px; border-radius: 10px;">
+            <p style="font-size: 10px; color: #888; margin-top: 10px;">* Hệ thống tự động cộng tiền sau 30s</p>
+        </div>
+    </div>
+
+    <div class="box"><h3 style="color:var(--green); margin-top:0">GÓI NGÀY (20.000đ)</h3><div id="list-ngay">Đang tải...</div></div>
+    <div class="box"><h3 style="color:var(--cyan); margin-top:0">GÓI TUẦN (40.000đ)</h3><div id="list-tuan">Đang tải...</div></div>
+    <div class="box"><h3 style="color:#ff007b; margin-top:0">GÓI THÁNG (80.000đ)</h3><div id="list-thang">Đang tải...</div></div>
+</div>
+
+<script>
+    // CẤU HÌNH FIREBASE
+    const firebaseConfig = {
+        apiKey: "AIzaSyBk6R1TDZeAxh37JQLgL_6Wl0v8m8Sg0",
+        authDomain: "shopctv-61f96.firebaseapp.com",
+        databaseURL: "https://shopctv-61f96-default-rtdb.asia-southeast1.firebasedatabase.app/", 
+        projectId: "shopctv-61f96",
+        storageBucket: "shopctv-61f96.firebasestorage.app",
+        messagingSenderId: "610663182342",
+        appId: "1:610663182342:web:83e255ec7921609395f190"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let currentUser = null;
+
+    function toggleAuth(isLogin) {
+        document.getElementById('login-mode').style.display = isLogin ? 'block' : 'none';
+        document.getElementById('register-mode').style.display = isLogin ? 'none' : 'block';
+        document.getElementById('auth-title').innerText = isLogin ? 'ĐĂNG NHẬP' : 'ĐĂNG KÝ';
+    }
+
+    function handleAuth(type) {
+        const user = document.getElementById('auth-user').value.trim().toLowerCase();
+        const pass = document.getElementById('auth-pass').value.trim();
+        if(!user || !pass) return alert("Vui lòng điền đủ thông tin!");
+        
+        db.ref('users/' + user).once('value', (snap) => {
+            const data = snap.val();
+            if(type === 'register') {
+                if(data) return alert("Tài khoản này đã tồn tại!");
+                db.ref('users/' + user).set({ password: pass, balance: 0 }).then(() => alert("Đăng ký thành công!"));
+            } else {
+                if(!data || data.password !== pass) return alert("Sai tài khoản hoặc mật khẩu!");
+                enterShop(user);
+            }
+        });
+    }
+
+    function enterShop(user) {
+        currentUser = user;
+        document.getElementById('auth-area').style.display = 'none';
+        document.getElementById('user-area').style.display = 'block';
+        document.getElementById('display-name').innerText = user.toUpperCase();
+        
+        // THÔNG TIN NGÂN HÀNG CỦA ÔNG
+        const stk = "0588807300000";
+        const bank = "MB";
+        const memo = "NAP " + user;
+        document.getElementById('memo-display').innerText = memo;
+        document.getElementById('qr-auto').src = `https://img.vietqr.io/image/${bank}-${stk}-compact2.png?addInfo=${encodeURIComponent(memo)}`;
+
+        // LẮNG NGHE TIỀN NHẢY REALTIME
+        db.ref('users/' + user + '/balance').on('value', (snap) => {
+            document.getElementById('user-balance').innerText = (snap.val() || 0).toLocaleString();
+        });
+    }
+
+    // LOAD HÀNG HÓA
+    function loadKeys(path, elementId, price) {
+        db.ref('keys/' + path).on('value', (snapshot) => {
+            const div = document.getElementById(elementId);
+            const data = snapshot.val();
+            if (!data) { div.innerHTML = "Hết hàng"; return; }
+            div.innerHTML = "";
+            for (let id in data) {
+                div.innerHTML += `<div class="key-row"><span>Mã: <span style="background:#333;color:#333">********</span></span><button class="btn-main" style="width:70px;padding:8px" onclick="buy('${path}/${id}', ${price})">MUA</button></div>`;
+            }
+        });
+    }
+
+    function buy(fullPath, price) {
+        if(!currentUser) return alert("Đăng nhập đi!");
+        db.ref('users/' + currentUser + '/balance').once('value', (snap) => {
+            const bal = snap.val() || 0;
+            if(bal < price) return alert("Thiếu tiền!");
+            if(confirm("Mua gói này với giá " + price.toLocaleString() + "đ?")) {
+                db.ref('keys/' + fullPath).once('value', (kSnap) => {
+                    const kv = kSnap.val();
+                    db.ref('users/' + currentUser + '/balance').set(bal - price);
+                    db.ref('keys/' + fullPath).remove();
+                    alert("THÀNH CÔNG! Key của bạn: " + kv);
+                });
+            }
+        });
+    }
+
+    loadKeys('shop1/ngay', 'list-ngay', 20000);
+    loadKeys('shop1/tuan', 'list-tuan', 40000);
+    loadKeys('shop1/thang', 'list-thang', 80000);
+</script>
+</body>
+</html>
